@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PixelVault Digital Market</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>PixelVault</h1>
+        <p class="tagline">Premium digital assets for creators</p>
+      </div>
+      <button id="cart-toggle" class="button button-primary">Cart (<span id="cart-count">0</span>)</button>
+    </header>
+
+    <main class="layout">
+      <section>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search products..." />
+          <select id="category-filter">
+            <option value="all">All categories</option>
+            <option value="Templates">Templates</option>
+            <option value="Courses">Courses</option>
+            <option value="Design Kits">Design Kits</option>
+            <option value="Audio">Audio</option>
+          </select>
+        </div>
+        <div id="product-grid" class="grid"></div>
+      </section>
+
+      <aside id="cart-panel" class="cart-panel hidden">
+        <h2>Your cart</h2>
+        <ul id="cart-items" class="cart-items"></ul>
+        <div class="summary">
+          <p>Subtotal: <strong id="cart-subtotal">$0.00</strong></p>
+          <button id="checkout-btn" class="button button-primary" disabled>Checkout</button>
+          <button id="clear-cart" class="button button-ghost">Clear cart</button>
+        </div>
+      </aside>
+    </main>
+
+    <section id="checkout-section" class="checkout hidden">
+      <h2>Secure checkout</h2>
+      <form id="checkout-form">
+        <label>
+          Full name
+          <input name="name" required minlength="2" />
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" required />
+        </label>
+        <label>
+          Card number (demo)
+          <input name="card" pattern="[0-9]{16}" required placeholder="16 digits" />
+        </label>
+        <button class="button button-primary" type="submit">Pay now</button>
+      </form>
+      <p class="muted">Demo-only checkout (no real payment processing).</p>
+    </section>
+
+    <section class="library">
+      <h2>Your digital library</h2>
+      <p class="muted">Purchased files are available instantly after checkout.</p>
+      <div id="library-list"></div>
+    </section>
+
+    <template id="product-template">
+      <article class="card">
+        <h3 data-name></h3>
+        <p data-description></p>
+        <div class="meta">
+          <span data-category></span>
+          <strong data-price></strong>
+        </div>
+        <button class="button button-primary" data-action="add">Add to cart</button>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
