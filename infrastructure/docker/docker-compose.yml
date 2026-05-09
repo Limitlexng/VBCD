@@ -1,0 +1,174 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: berryx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: berryx
+      POSTGRES_PASSWORD: berryx_dev_password
+      POSTGRES_DB: berryx_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U berryx -d berryx_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - berryx-network
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: berryx-redis
+    restart: unless-stopped
+    command: redis-server --requirepass berryx_redis_password --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "berryx_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - berryx-network
+
+  # NestJS API
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+      target: development
+    container_name: berryx-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: berryx
+      DB_PASSWORD: berryx_dev_password
+      DB_NAME: berryx_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: berryx_redis_password
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-in-production
+    volumes:
+      - ../../apps/api/src:/app/src
+      - ../../apps/api/logs:/app/logs
+    ports:
+      - "3001:3001"
+      - "9229:9229"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - berryx-network
+
+  # Next.js Web App
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+      target: development
+    container_name: berryx-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    volumes:
+      - ../../apps/web/src:/app/src
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - berryx-network
+
+  # Admin Dashboard
+  admin:
+    build:
+      context: ../../apps/admin
+      dockerfile: Dockerfile
+      target: development
+    container_name: berryx-admin
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_ADMIN_API_URL: http://localhost:3001/api/v1
+    volumes:
+      - ../../apps/admin/src:/app/src
+    ports:
+      - "3002:3002"
+    depends_on:
+      - api
+    networks:
+      - berryx-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: berryx-nginx
+    restart: unless-stopped
+    volumes:
+      - ../nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - web
+      - admin
+    networks:
+      - berryx-network
+
+  # Redis Commander (dev only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: berryx-redis-ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "berryx:redis:6379:0:berryx_redis_password"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - berryx-network
+    profiles:
+      - tools
+
+  # pgAdmin (dev only)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: berryx-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@berryx.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - berryx-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  berryx-network:
+    driver: bridge
